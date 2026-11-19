@@ -7,7 +7,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-900 text-slate-100 font-mono min-h-screen p-4">
-    <!-- Header -->
     <header class="max-w-6xl mx-auto bg-slate-800 border border-slate-700 rounded-lg p-3 mb-3 flex flex-col md:flex-row justify-between items-center shadow-lg">
         <div>
             <h1 class="text-base font-bold text-cyan-400">LAB MAYA TKJ <span class="text-xs bg-cyan-900 text-cyan-200 px-2 py-0.5 rounded ml-1">Modul 04</span></h1>
@@ -19,9 +18,7 @@
         </div>
     </header>
 
-    <!-- Main Container -->
     <main class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-3">
-        <!-- Terminal Section -->
         <section class="lg:col-span-2 bg-slate-950 border border-slate-700 rounded-lg flex flex-col h-[520px] shadow-lg">
             <div class="bg-slate-900 px-3 py-2 border-b border-slate-800 flex items-center justify-between">
                 <div class="flex items-center gap-2">
@@ -37,11 +34,173 @@
                 <div>Selamat datang di Simulator Networking CLI Lab Maya TKJ.<br>Klik tombol preset di bawah untuk menguji <strong>Ping</strong> dan melihat respons alat jaringan!</div>
             </div>
 
-            <!-- Preset Targets -->
             <div class="bg-slate-900 px-3 py-2 border-t border-slate-800 flex flex-wrap items-center gap-1.5 text-xs">
                 <span class="text-slate-400 font-bold">Uji Cepat:</span>
                 <button onclick="runPreset('ping 192.168.1.1')" class="bg-slate-800 hover:bg-slate-700 text-amber-300 px-2 py-1 rounded border border-slate-700 cursor-pointer">Ping Switch L3</button>
                 <button onclick="runPreset('ping 10.0.0.254')" class="bg-slate-800 hover:bg-slate-700 text-purple-300 px-2 py-1 rounded border border-slate-700 cursor-pointer">Ping Router</button>
                 <button onclick="runPreset('ping 8.8.8.8')" class="bg-slate-800 hover:bg-slate-700 text-emerald-300 px-2 py-1 rounded border border-slate-700 cursor-pointer">Ping Server</button>
                 <button onclick="runPreset('traceroute 8.8.8.8')" class="bg-slate-800 hover:bg-slate-700 text-cyan-300 px-2 py-1 rounded border border-slate-700 cursor-pointer">Traceroute</button>
-                <button onclick="runPreset('ping 192.168.99.99')" class="bg-slate-800 hover:bg-slate-700 text-rose-300 px-2 py-1
+                <button onclick="runPreset('ping 192.168.99.99')" class="bg-slate-800 hover:bg-slate-700 text-rose-300 px-2 py-1 rounded border border-slate-700 cursor-pointer">Test RTO</button>
+            </div>
+
+            <div class="p-2.5 bg-slate-900 border-t border-slate-800 flex items-center gap-2">
+                <span class="text-cyan-400 text-xs font-bold">student@tkj-lab:~$</span>
+                <input type="text" id="command-input" autofocus class="bg-transparent flex-1 outline-none text-slate-100 text-xs" placeholder="ketik perintah misal: ping 192.168.1.1">
+            </div>
+        </section>
+
+        <div class="space-y-3">
+            <section class="bg-slate-950 border border-slate-700 rounded-lg p-3 shadow-lg">
+                <h2 class="text-xs font-bold text-cyan-400 mb-2">📖 Keterangan Alat Jaringan</h2>
+                <div class="space-y-2 text-[11px]">
+                    <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                        <strong class="text-cyan-300">PC Client (192.168.1.10):</strong> Pengirim perintah ping awal.
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                        <strong class="text-amber-300">Switch L3 (192.168.1.1):</strong> Gateway / pintu keluar LAN & mengurangi TTL.
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                        <strong class="text-purple-300">Router (10.0.0.254):</strong> Pengarah jalur paket ke jaringan luar/ISP.
+                    </div>
+                    <div class="bg-slate-900 p-2 rounded border border-slate-800">
+                        <strong class="text-emerald-300">Server (Target IP):</strong> Penerima akhir & pemberi balasan ICMP.
+                    </div>
+                </div>
+            </section>
+
+            <section class="bg-slate-950 border border-slate-700 rounded-lg p-3 shadow-lg">
+                <h3 class="text-xs font-bold text-cyan-400 mb-1.5">📊 Statistik</h3>
+                <div class="bg-slate-900 p-2.5 rounded border border-slate-800 text-[11px] space-y-1">
+                    <div class="flex justify-between"><span>Kirim / Terima</span><span id="stat-packets" class="font-bold">0 / 0</span></div>
+                    <div class="flex justify-between"><span>Packet Loss</span><span id="stat-loss" class="font-bold text-emerald-400">0%</span></div>
+                    <div class="flex justify-between"><span>Rata-rata RTT</span><span id="stat-avg" class="font-bold">0ms</span></div>
+                </div>
+            </section>
+        </div>
+    </main>
+
+    <script>
+        const terminalOutput = document.getElementById('terminal-output');
+        const commandInput = document.getElementById('command-input');
+        let stats = { sent: 0, received: 0, rtts: [] };
+
+        commandInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                const cmd = commandInput.value.trim();
+                if (cmd) {
+                    appendTerminal(`student@tkj-lab:~$ ${cmd}`, 'text-cyan-400');
+                    executeCommand(cmd);
+                    commandInput.value = '';
+                }
+            }
+        });
+
+        function clearTerminal() {
+            terminalOutput.innerHTML = '<div>Terminal dibersihkan. Klik tombol preset di bawah.</div>';
+        }
+
+        function runPreset(cmd) {
+            commandInput.value = cmd;
+            appendTerminal(`student@tkj-lab:~$ ${cmd}`, 'text-cyan-400');
+            executeCommand(cmd);
+            commandInput.value = '';
+        }
+
+        function appendTerminal(text, colorClass = 'text-slate-300') {
+            const div = document.createElement('div');
+            div.className = colorClass;
+            div.innerHTML = text;
+            terminalOutput.appendChild(div);
+            terminalOutput.scrollTop = terminalOutput.scrollHeight;
+        }
+
+        function updateStats() {
+            document.getElementById('stat-packets').innerText = `${stats.sent} / ${stats.received}`;
+            const loss = stats.sent > 0 ? (((stats.sent - stats.received) / stats.sent) * 100).toFixed(0) : 0;
+            const lossEl = document.getElementById('stat-loss');
+            lossEl.innerText = `${loss}%`;
+            lossEl.className = `font-bold ${loss > 0 ? 'text-rose-400' : 'text-emerald-400'}`;
+            
+            if (stats.rtts.length > 0) {
+                const avg = (stats.rtts.reduce((a, b) => a + b, 0) / stats.rtts.length).toFixed(1);
+                document.getElementById('stat-avg').innerText = `${avg}ms`;
+            }
+        }
+
+        function executeCommand(cmd) {
+            const parts = cmd.split(' ');
+            const action = parts[0].toLowerCase();
+            const target = parts[1];
+
+            if (action === 'help') {
+                appendTerminal(`Perintah tersedia: <strong>ping &lt;IP&gt;</strong>, <strong>traceroute &lt;IP&gt;</strong>, atau <strong>clear</strong>`);
+            } else if (action === 'clear') {
+                clearTerminal();
+            } else if (action === 'ping') {
+                if (!target) {
+                    appendTerminal('Masukkan IP tujuan! Contoh: ping 192.168.1.1', 'text-rose-400');
+                    return;
+                }
+                runPingSimulation(target);
+            } else if (action === 'traceroute') {
+                if (!target) {
+                    appendTerminal('Masukkan IP tujuan! Contoh: traceroute 8.8.8.8', 'text-rose-400');
+                    return;
+                }
+                runTracerouteSimulation(target);
+            } else {
+                appendTerminal(`Perintah '${action}' tidak dikenali. Ketik 'help' untuk bantuan.`, 'text-rose-400');
+            }
+        }
+
+        function runPingSimulation(target) {
+            let isDeadIP = target.includes('99');
+            let infoAlat = "";
+            if (target === '192.168.1.1') infoAlat = " [Alat: Switch Layer 3 / Gateway]";
+            else if (target === '10.0.0.254') infoAlat = " [Alat: Router Upstream]";
+            else if (!isDeadIP) infoAlat = " [Alat: Server Remote]";
+
+            appendTerminal(`PING ${target}${infoAlat} - Mengirim 4 paket ICMP...`, 'text-slate-400');
+
+            let count = 0;
+            const interval = setInterval(() => {
+                stats.sent++;
+                if (isDeadIP) {
+                    appendTerminal(`Request Time Out (RTO) - Alat ${target} tidak merespons (seq=${count + 1})`, 'text-rose-400');
+                } else {
+                    stats.received++;
+                    let baseRtt = target === '192.168.1.1' ? 2 : (target === '10.0.0.254' ? 8 : 18);
+                    const rtt = baseRtt + Math.floor(Math.random() * 4);
+                    stats.rtts.push(rtt);
+                    appendTerminal(`Reply dari ${target}: bytes=32 time=${rtt}ms TTL=${target === '192.168.1.1' ? 64 : 54}`);
+                }
+                updateStats();
+                count++;
+                if (count >= 4) {
+                    clearInterval(interval);
+                }
+            }, 500);
+        }
+
+        function runTracerouteSimulation(target) {
+            appendTerminal(`Melacak jalur menuju ${target}:`);
+            const hops = [
+                { hop: 1, ip: "192.168.1.1", alat: "Switch Layer 3 (Gateway)", rtt: 2 },
+                { hop: 2, ip: "10.0.0.254", alat: "Router Upstream", rtt: 8 },
+                { hop: 3, ip: target, alat: "Server Remote", rtt: 18 }
+            ];
+
+            let index = 0;
+            const interval = setInterval(() => {
+                if (index < hops.length) {
+                    const h = hops[index];
+                    appendTerminal(`Hop ${h.hop}: ${h.ip} — <span class="text-cyan-300">${h.alat}</span> (${h.rtt} ms)`);
+                    index++;
+                } else {
+                    clearInterval(interval);
+                }
+            }, 600);
+        }
+    </script>
+</body>
+</html>
